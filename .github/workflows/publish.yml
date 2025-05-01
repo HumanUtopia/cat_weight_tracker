@@ -43,4 +43,4 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: ghcr.io/${{ github.owner_lc }}/cat_weight_tracker:latest
+          tags: ghcr.io/${{ env.owner_lc }}/cat_weight_tracker:latest
