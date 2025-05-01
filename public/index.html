@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>猫咪体重跟踪器</title>
+  <script src="assets/js/axios.min.js"></script>
+  <script src="assets/js/echarts.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 15px;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 28px;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 15px;
+      font-size: 20px;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* 桌面布局 */
+    @media (min-width: 768px) {
+      .container {
+        flex-direction: row;
+      }
+
+      h1 {
+        font-size: 32px;
+      }
+
+      h2 {
+        font-size: 24px;
+      }
+    }
+
+    .sidebar {
+      flex: 1;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .main-content {
+      flex: 3;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .chart-container {
+      width: 100%;
+      height: 300px;
+      margin-top: 20px;
+    }
+
+    @media (min-width: 768px) {
+      .chart-container {
+        height: 400px;
+      }
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px; /* 更大的字体，适合移动端触摸 */
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+      padding: 12px; /* 更大的按钮，适合移动端触摸 */
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    /* 表格响应式设计 */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    /* 移动端表格优化 */
+    @media (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+
+      thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+      }
+
+      tr {
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+      }
+
+      td {
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-left: 50%;
+        text-align: right;
+      }
+
+      td:before {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        width: 45%;
+        padding-right: 10px;
+        white-space: nowrap;
+        text-align: left;
+        font-weight: bold;
+      }
+
+      /* 为每个单元格添加标签 */
+      td:nth-of-type(1):before { content: "猫咪名字"; }
+      td:nth-of-type(2):before { content: "体重 (kg)"; }
+      td:nth-of-type(3):before { content: "日期"; }
+      td:nth-of-type(4):before { content: "操作"; }
+
+      td:last-child {
+        text-align: center;
+        padding-left: 8px;
+      }
+    }
+
+    .tab-container {
+      margin-top: 20px;
+    }
+
+    .tab-buttons {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 15px;
+      flex-wrap: wrap; /* 在小屏幕上允许换行 */
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 10px 5px;
+      background-color: #e0e0e0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      width: auto;
+      font-size: 14px;
+      text-align: center;
+      min-width: 100px; /* 确保按钮不会太小 */
+    }
+
+    @media (min-width: 768px) {
+      .tab-button {
+        font-size: 16px;
+        padding: 10px 16px;
+      }
+
+      .tab-buttons {
+        gap: 10px;
+      }
+    }
+
+    .tab-button.active {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* 移动端删除按钮优化 */
+    .delete-btn {
+      padding: 8px;
+      background-color: #f44336;
+      margin-top: 0;
+      width: 100%;
+    }
+
+    /* 移动端导航优化 */
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: #fff;
+      box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+
+    .mobile-nav-buttons {
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+    }
+
+    .mobile-nav-button {
+      border: none;
+      background: none;
+      color: #666;
+      font-size: 14px;
+      text-align: center;
+      padding: 5px 0;
+      width: 33.33%;
+      cursor: pointer;
+    }
+
+    .mobile-nav-button.active {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+
+    @media (max-width: 767px) {
+      .mobile-nav {
+        display: block;
+      }
+
+      body {
+        padding-bottom: 60px; /* 为底部导航腾出空间 */
+      }
+    }
+
+    /* 添加动画效果 */
+    .sidebar, .main-content {
+      transition: all 0.3s ease;
+    }
+
+    /* 对于特小屏幕的额外优化 */
+    @media (max-width: 320px) {
+      body {
+        padding: 10px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      h2 {
+        font-size: 18px;
+      }
+
+      .chart-container {
+        height: 250px;
+      }
+    }
+  </style>
+</head>
+<body>
+<h1>猫咪体重跟踪器</h1>
+
+<div class="container">
+  <div class="sidebar">
+    <h2>添加新猫咪</h2>
+    <div class="form-group">
+      <label for="new-cat-name">猫咪名字</label>
+      <input type="text" id="new-cat-name" placeholder="输入猫咪名字">
+    </div>
+    <button id="add-cat-btn">添加猫咪</button>
+
+    <h2>记录体重</h2>
+    <div class="form-group">
+      <label for="cat-select">选择猫咪</label>
+      <select id="cat-select">
+        <option value="">-- 请选择猫咪 --</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="weight-input">体重 (kg)</label>
+      <input type="number" id="weight-input" step="0.01" min="0" placeholder="输入体重">
+    </div>
+    <div class="form-group">
+      <label for="date-input">日期</label>
+      <input type="date" id="date-input">
+    </div>
+    <button id="add-weight-btn">记录体重</button>
+  </div>
+
+  <div class="main-content">
+    <div class="tab-container">
+      <div class="tab-buttons">
+        <button class="tab-button active" data-tab="single-cat">单只猫咪趋势</button>
+        <button class="tab-button" data-tab="all-cats">所有猫咪趋势</button>
+        <button class="tab-button" data-tab="weight-records">体重记录</button>
+      </div>
+
+      <div id="single-cat-tab" class="tab-content active">
+        <div class="form-group">
+          <label for="chart-cat-select">选择猫咪</label>
+          <select id="chart-cat-select">
+            <option value="">-- 请选择猫咪 --</option>
+          </select>
+        </div>
+        <div id="single-cat-chart" class="chart-container"></div>
+      </div>
+
+      <div id="all-cats-tab" class="tab-content">
+        <div id="all-cats-chart" class="chart-container"></div>
+      </div>
+
+      <div id="weight-records-tab" class="tab-content">
+        <table id="weight-records-table">
+          <thead>
+          <tr>
+            <th>猫咪名字</th>
+            <th>体重 (kg)</th>
+            <th>日期</th>
+            <th>操作</th>
+          </tr>
+          </thead>
+          <tbody>
+          <!-- 这里将动态填充体重记录 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 移动端底部导航 -->
+<div class="mobile-nav">
+  <div class="mobile-nav-buttons">
+    <button class="mobile-nav-button active" data-section="add-data">添加数据</button>
+    <button class="mobile-nav-button" data-section="charts">查看图表</button>
+    <button class="mobile-nav-button" data-section="records">体重记录</button>
+  </div>
+</div>
+
+<script>
+  // 设置当前日期为默认日期
+  document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date();
+    const dateString = today.toISOString().split('T')[0];
+    document.getElementById('date-input').value = dateString;
+
+    // 初始化加载数据
+    loadCats();
+    loadWeightRecords();
+
+    // 初始化图表
+    initCharts();
+
+    // 初始化移动端导航
+    initMobileNav();
+  });
+
+  // 移动端导航功能
+  function initMobileNav() {
+    const mobileNavButtons = document.querySelectorAll('.mobile-nav-button');
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
+    const tabButtons = document.querySelectorAll('.tab-button');
+
+    mobileNavButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        const section = this.getAttribute('data-section');
+
+        // 移除所有按钮的活跃状态
+        mobileNavButtons.forEach(btn => btn.classList.remove('active'));
+        // 添加当前按钮的活跃状态
+        this.classList.add('active');
+
+        if (section === 'add-data') {
+          // 在移动视图中显示侧边栏（添加数据）
+          sidebar.style.display = 'block';
+          mainContent.style.display = 'none';
+        } else {
+          // 在移动视图中显示主内容（图表或记录）
+          sidebar.style.display = 'none';
+          mainContent.style.display = 'block';
+
+          if (section === 'charts') {
+            // 显示单只猫咪图表
+            tabButtons[0].click();
+          } else if (section === 'records') {
+            // 显示体重记录
+            tabButtons[2].click();
+          }
+        }
+      });
+    });
+
+    // 根据屏幕宽度设置初始视图
+    function setInitialView() {
+      if (window.innerWidth < 768) {
+        // 移动视图：只显示侧边栏
+        sidebar.style.display = 'block';
+        mainContent.style.display = 'none';
+      } else {
+        // 桌面视图：显示两者
+        sidebar.style.display = 'block';
+        mainContent.style.display = 'block';
+      }
+    }
+
+    // 初始设置
+    setInitialView();
+
+    // 窗口大小改变时重新设置
+    window.addEventListener('resize', function() {
+      if (window.innerWidth >= 768) {
+        // 桌面视图：显示两者
+        sidebar.style.display = 'block';
+        mainContent.style.display = 'block';
+      } else {
+        // 在移动视图中，保持当前选中的内容显示
+        const activeButton = document.querySelector('.mobile-nav-button.active');
+        if (activeButton) {
+          const section = activeButton.getAttribute('data-section');
+          if (section === 'add-data') {
+            sidebar.style.display = 'block';
+            mainContent.style.display = 'none';
+          } else {
+            sidebar.style.display = 'none';
+            mainContent.style.display = 'block';
+          }
+        }
+      }
+    });
+  }
+
+  // 选项卡切换
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  tabButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const tabId = this.getAttribute('data-tab');
+
+      // 激活选中的按钮
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      this.classList.add('active');
+
+      // 显示对应的内容
+      tabContents.forEach(content => content.classList.remove('active'));
+      if (tabId === 'single-cat') {
+        document.getElementById('single-cat-tab').classList.add('active');
+      } else if (tabId === 'all-cats') {
+        document.getElementById('all-cats-tab').classList.add('active');
+      } else if (tabId === 'weight-records') {
+        document.getElementById('weight-records-tab').classList.add('active');
+      }
+
+      // 重新调整图表大小以适应新的容器大小
+      if (tabId === 'single-cat' && singleCatChart) {
+        singleCatChart.resize();
+      } else if (tabId === 'all-cats' && allCatsChart) {
+        allCatsChart.resize();
+      }
+    });
+  });
+
+  // 加载猫咪列表
+  async function loadCats() {
+    try {
+      const response = await axios.get('/api/cats');
+      const cats = response.data;
+
+      // 更新猫咪选择下拉列表
+      updateCatSelectOptions(cats, 'cat-select');
+      updateCatSelectOptions(cats, 'chart-cat-select');
+
+      // 如果有选择的猫咪，则更新单只猫咪图表
+      const selectedCat = document.getElementById('chart-cat-select').value;
+      if (selectedCat) {
+        updateSingleCatChart(selectedCat);
+      }
+    } catch (error) {
+      console.error('加载猫咪列表失败:', error);
+      alert('加载猫咪列表失败');
+    }
+  }
+
+  // 更新猫咪选择下拉列表
+  function updateCatSelectOptions(cats, selectId) {
+    const select = document.getElementById(selectId);
+    const currentValue = select.value;
+
+    // 清除现有选项（保留第一个"请选择"选项）
+    while (select.options.length > 1) {
+      select.remove(1);
+    }
+
+    // 添加新的选项
+    cats.forEach(cat => {
+      const option = document.createElement('option');
+      option.value = cat.id;
+      option.textContent = cat.name;
+      select.appendChild(option);
+    });
+
+    // 尝试恢复之前选中的值
+    if (currentValue) {
+      select.value = currentValue;
+    }
+  }
+
+  // 添加新猫咪
+  document.getElementById('add-cat-btn').addEventListener('click', async function() {
+    const catName = document.getElementById('new-cat-name').value.trim();
+    if (!catName) {
+      alert('请输入猫咪名字');
+      return;
+    }
+
+    try {
+      await axios.post('/api/cats', { name: catName });
+      document.getElementById('new-cat-name').value = '';
+      alert('猫咪添加成功');
+      loadCats();
+    } catch (error) {
+      console.error('添加猫咪失败:', error);
+      alert('添加猫咪失败');
+    }
+  });
+
+  // 记录体重
+  document.getElementById('add-weight-btn').addEventListener('click', async function() {
+    const catId = document.getElementById('cat-select').value;
+    const weight = document.getElementById('weight-input').value;
+    const date = document.getElementById('date-input').value;
+
+    if (!catId) {
+      alert('请选择猫咪');
+      return;
+    }
+
+    if (!weight || weight <= 0) {
+      alert('请输入有效的体重');
+      return;
+    }
+
+    if (!date) {
+      alert('请选择日期');
+      return;
+    }
+
+    try {
+      await axios.post('/api/weights', {
+        cat_id: catId,
+        weight: weight,
+        date: date
+      });
+
+      document.getElementById('weight-input').value = '';
+      alert('体重记录成功');
+
+      // 更新数据和图表
+      loadWeightRecords();
+      updateCharts();
+
+      // 如果是移动视图，可以自动切换到图表视图
+      if (window.innerWidth < 768) {
+        const chartsButton = document.querySelector('.mobile-nav-button[data-section="charts"]');
+        if (chartsButton) {
+          chartsButton.click();
+        }
+      }
+    } catch (error) {
+      console.error('记录体重失败:', error);
+      alert('记录体重失败');
+    }
+  });
+
+  // 加载体重记录
+  async function loadWeightRecords() {
+    try {
+      const response = await axios.get('/api/weights');
+      const records = response.data;
+
+      const tbody = document.querySelector('#weight-records-table tbody');
+      tbody.innerHTML = '';
+
+      records.forEach(record => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+                        <td>${record.cat_name}</td>
+                        <td>${record.weight} kg</td>
+                        <td>${record.date}</td>
+                        <td>
+                            <button class="delete-btn" data-id="${record.id}">删除</button>
+                        </td>
+                    `;
+        tbody.appendChild(tr);
+      });
+
+      // 绑定删除按钮事件
+      document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', async function() {
+          const recordId = this.getAttribute('data-id');
+          if (confirm('确定要删除这条记录吗？')) {
+            try {
+              await axios.delete(`/api/weights/${recordId}`);
+              alert('删除成功');
+              loadWeightRecords();
+              updateCharts();
+            } catch (error) {
+              console.error('删除记录失败:', error);
+              alert('删除记录失败');
+            }
+          }
+        });
+      });
+    } catch (error) {
+      console.error('加载体重记录失败:', error);
+      alert('加载体重记录失败');
+    }
+  }
+
+  // 初始化图表
+  let singleCatChart, allCatsChart;
+
+  function initCharts() {
+    // 初始化单只猫咪图表
+    singleCatChart = echarts.init(document.getElementById('single-cat-chart'));
+
+    // 初始化所有猫咪图表
+    allCatsChart = echarts.init(document.getElementById('all-cats-chart'));
+
+    // 当选择猫咪时更新单只猫咪图表
+    document.getElementById('chart-cat-select').addEventListener('change', function() {
+      const catId = this.value;
+      if (catId) {
+        updateSingleCatChart(catId);
+      }
+    });
+
+    // 更新所有猫咪图表
+    updateAllCatsChart();
+  }
+
+  // 更新单只猫咪图表
+  async function updateSingleCatChart(catId) {
+    try {
+      const response = await axios.get(`/api/weights/cat/${catId}`);
+      const data = response.data;
+
+      if (data.length === 0) {
+        singleCatChart.setOption({
+          title: {
+            text: '暂无体重记录',
+            x: 'center',
+            y: 'center',
+            textStyle: {
+              fontSize: 16,
+              color: '#999'
+            }
+          }
+        });
+        return;
+      }
+
+      const catName = data[0].cat_name;
+      const dates = data.map(item => item.date);
+      const weights = data.map(item => item.weight);
+
+      // 根据屏幕大小调整配置
+      const isMobile = window.innerWidth < 768;
+
+      const option = {
+        title: {
+          text: `${catName}的体重趋势`,
+          left: 'center',
+          textStyle: {
+            fontSize: isMobile ? 14 : 18
+          }
+        },
+        tooltip: {
+          trigger: 'axis',
+          formatter: '{b}<br/>{a}: {c} kg'
+        },
+        legend: {
+          show: false
+        },
+        grid: {
+          left: isMobile ? '10%' : '8%',
+          right: isMobile ? '10%' : '8%',
+          bottom: isMobile ? '15%' : '12%',
+          top: isMobile ? '15%' : '12%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: dates,
+          name: '日期',
+          nameLocation: 'middle',
+          nameGap: 30,
+          axisLabel: {
+            interval: isMobile ? 'auto' : 0,
+            rotate: isMobile ? 45 : 0,
+            fontSize: isMobile ? 10 : 12
+          }
+        },
+        yAxis: {
+          type: 'value',
+          name: '体重 (kg)',
+          nameLocation: 'middle',
+          nameGap: 30,
+          min: function(value) {
+            return Math.max(0, Math.floor(value.min * 0.9 * 10) / 10);
+          },
+          axisLabel: {
+            fontSize: isMobile ? 10 : 12
+          }
+        },
+        series: [{
+          name: '体重',
+          type: 'line',
+          data: weights,
+          markPoint: {
+            data: [
+              { type: 'max', name: '最大值' },
+              { type: 'min', name: '最小值' }
+            ]
+          },
+          markLine: {
+            data: [
+              { type: 'average', name: '平均值' }
+            ]
+          },
+          itemStyle: {
+            color: '#4CAF50'
+          },
+          lineStyle: {
+            width: isMobile ? 2 : 3
+          },
+          symbolSize: isMobile ? 6 : 8
+        }]
+      };
+
+      singleCatChart.setOption(option);
+    } catch (error) {
+      console.error('更新单只猫咪图表失败:', error);
+      alert('更新单只猫咪图表失败');
+    }
+  }
+
+  // 更新所有猫咪图表
+  async function updateAllCatsChart() {
+    try {
+      const response = await axios.get('/api/weights/all-cats');
+      const data = response.data;
+
+      if (Object.keys(data).length === 0) {
+        allCatsChart.setOption({
+          title: {
+            text: '暂无体重记录',
+            x: 'center',
+            y: 'center',
+            textStyle: {
+              fontSize: 16,
+              color: '#999'
+            }
+          }
+        });
+        return;
+      }
+
+      const allDates = new Set();
+      Object.values(data).forEach(catData => {
+        catData.forEach(record => {
+          allDates.add(record.date);
+        });
+      });
+
+      // 按日期排序
+      const sortedDates = Array.from(allDates).sort();
+
+      // 为每只猫准备系列数据
+      const series = [];
+
+      // 定义一组颜色
+      const colors = ['#4CAF50', '#2196F3', '#FF9800', '#E91E63', '#9C27B0', '#795548', '#607D8B'];
+
+      let colorIndex = 0;
+      for (const catName in data) {
+        // 创建日期到体重的映射
+        const dateToWeight = {};
+        data[catName].forEach(record => {
+          dateToWeight[record.date] = record.weight;
+        });
+
+        // 为所有日期准备数据，如果没有记录则为null
+        const weights = sortedDates.map(date => dateToWeight[date] || null);
+
+        series.push({
+          name: catName,
+          type: 'line',
+          data: weights,
+          connectNulls: true, // 连接空值点
+          itemStyle: {
+            color: colors[colorIndex % colors.length]
+          }
+        });
+
+        colorIndex++;
+      }
+
+      // 根据屏幕大小调整配置
+      const isMobile = window.innerWidth < 768;
+
+      const option = {
+        title: {
+          text: '所有猫咪的体重趋势',
+          left: 'center',
+          textStyle: {
+            fontSize: isMobile ? 14 : 18
+          }
+        },
+        tooltip: {
+          trigger: 'axis'
+        },
+        legend: {
+          data: Object.keys(data),
+          top: isMobile ? 40 : 30,
+          textStyle: {
+            fontSize: isMobile ? 10 : 12
+          },
+          type: isMobile ? 'scroll' : 'plain',
+          orient: isMobile ? 'horizontal' : 'horizontal',
+          pageButtonPosition: 'end',
+          pageButtonGap: 5
+        },
+        grid: {
+          left: isMobile ? '10%' : '8%',
+          right: isMobile ? '10%' : '8%',
+          bottom: isMobile ? '15%' : '12%',
+          top: isMobile ? '80px' : '80px',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: sortedDates,
+          name: '日期',
+          nameLocation: 'middle',
+          nameGap: 30,
+          axisLabel: {
+            interval: isMobile ? 'auto' : 0,
+            rotate: isMobile ? 45 : 0,
+            fontSize: isMobile ? 10 : 12
+          }
+        },
+        yAxis: {
+          type: 'value',
+          name: '体重 (kg)',
+          nameLocation: 'middle',
+          nameGap: 30,
+          min: function(value) {
+            return Math.max(0, Math.floor(value.min * 0.9 * 10) / 10);
+          },
+          axisLabel: {
+            fontSize: isMobile ? 10 : 12
+          }
+        },
+        series: series
+      };
+
+      allCatsChart.setOption(option);
+    } catch (error) {
+      console.error('更新所有猫咪图表失败:', error);
+      alert('更新所有猫咪图表失败');
+    }
+  }
+
+  // 更新所有图表
+  function updateCharts() {
+    const selectedCat = document.getElementById('chart-cat-select').value;
+    if (selectedCat) {
+      updateSingleCatChart(selectedCat);
+    }
+    updateAllCatsChart();
+  }
+
+  // 当窗口大小调整时，调整图表大小
+  window.addEventListener('resize', function() {
+    if (singleCatChart) singleCatChart.resize();
+    if (allCatsChart) allCatsChart.resize();
+
+    // 重新渲染图表以适应移动屏幕
+    updateCharts();
+  });
+</script>
+</body>
+</html>
