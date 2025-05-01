@@ -17,6 +17,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: set lower case owner name
+        run: |
+          echo "owner_lc=${OWNER,,}" >>${GITHUB_ENV}
+        env:
+          OWNER: '${{ github.repository_owner }}'
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -36,4 +42,4 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: ghcr.io/${{ github.repository_owner.toLowerCase() }}/cat_weight_tracker:latest
+          tags: ghcr.io/${{ owner_lc }}/cat_weight_tracker:latest
