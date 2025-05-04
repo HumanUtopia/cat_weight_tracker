@@ -16,16 +16,17 @@ CREATE TABLE IF NOT EXISTS weights (
                                        id INT AUTO_INCREMENT PRIMARY KEY,
                                        cat_id INT NOT NULL,
                                        weight DECIMAL(5,2) NOT NULL,
-    date DATE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (cat_id) REFERENCES cats(id) ON DELETE CASCADE,
-    UNIQUE KEY cat_date_unique (cat_id, date)
+                                       date DATE NOT NULL,
+                                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cat_id) REFERENCES cats(id) ON DELETE CASCADE
+    -- UNIQUE KEY cat_date_unique (cat_id, created_at)
     ) ENGINE=InnoDB;
 
 -- 添加索引
 CREATE INDEX idx_weights_cat_id ON weights(cat_id);
 CREATE INDEX idx_weights_date ON weights(date);
 
+/*
 -- 插入一些示例数据
 INSERT INTO cats (name) VALUES
                             ('小花'),
@@ -49,3 +50,4 @@ INSERT INTO weights (cat_id, weight, date) VALUES
                                                (3, 4.2, '2025-04-15'),
                                                (3, 4.3, '2025-04-22'),
                                                (3, 4.2, '2025-04-29');
+*/

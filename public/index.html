@@ -391,6 +391,8 @@
 </div>
 
 <script>
+
+
   // 设置当前日期为默认日期
   document.addEventListener('DOMContentLoaded', function() {
     const today = new Date();
@@ -517,7 +519,7 @@
   // 加载猫咪列表
   async function loadCats() {
     try {
-      const response = await axios.get('/api/cats');
+      const response = await axios.get('http://172.16.10.1:3100/api/cats');
       const cats = response.data;
 
       // 更新猫咪选择下拉列表
@@ -568,7 +570,7 @@
     }
 
     try {
-      await axios.post('/api/cats', { name: catName });
+      await axios.post('http://172.16.10.1:3100/api/cats', { name: catName });
       document.getElementById('new-cat-name').value = '';
       alert('猫咪添加成功');
       loadCats();
@@ -600,7 +602,7 @@
     }
 
     try {
-      await axios.post(`/api/weights`, {
+      await axios.post(`http://172.16.10.1:3100/api/weights`, {
         cat_id: catId,
         weight: weight,
         date: date
@@ -629,7 +631,7 @@
   // 加载体重记录
   async function loadWeightRecords() {
     try {
-      const response = await axios.get('/api/weights');
+      const response = await axios.get('http://172.16.10.1:3100/api/weights');
       const records = response.data;
 
       const tbody = document.querySelector('#weight-records-table tbody');
@@ -654,7 +656,7 @@
           const recordId = this.getAttribute('data-id');
           if (confirm('确定要删除这条记录吗？')) {
             try {
-              await axios.delete(`/api/weights/${recordId}`);
+              await axios.delete(`http://172.16.10.1:3100/api/weights/${recordId}`);
               alert('删除成功');
               loadWeightRecords();
               updateCharts();
@@ -696,9 +698,11 @@
   // 更新单只猫咪图表
   async function updateSingleCatChart(catId) {
     try {
-      const response = await axios.get(`/api/weights/cat/${catId}`);
-      const data = response.data;
-
+      singleCatChart.clear();
+      const response = await axios.get(`http://172.16.10.1:3100/api/weights/cat/${catId}`);
+      console.log(response.data);
+      let data = mergeWeightsByDate(response.data);
+      console.log(data);
       if (data.length === 0) {
         singleCatChart.setOption({
           title: {
@@ -802,8 +806,8 @@
   // 更新所有猫咪图表
   async function updateAllCatsChart() {
     try {
-      const response = await axios.get('/api/weights/all-cats');
-      const data = response.data;
+      const response = await axios.get('http://172.16.10.1:3100/api/weights/all-cats');
+      let data = mergeWeightsByDate(response.data);
 
       if (Object.keys(data).length === 0) {
         allCatsChart.setOption({
@@ -925,7 +929,56 @@
       alert('更新所有猫咪图表失败');
     }
   }
+  function mergeWeightsByDate(data) {
+    if (Array.isArray(data)) {
+      // 单只猫的数据：合并日期并计算平均体重
+      const mergedData = Object.values(
+              data.reduce((acc, curr) => {
+                const { date, weight, cat_name, cat_id } = curr;
+                if (!acc[date]) {
+                  acc[date] = { date, totalWeight: 0, count: 0, cat_name, cat_id };
+                }
+                acc[date].totalWeight += parseFloat(weight);
+                acc[date].count += 1;
+                return acc;
+              }, {})
+      ).map(group => ({
+        cat_name: group.cat_name,
+        cat_id: group.cat_id,
+        date: group.date,
+        weight: (group.totalWeight / group.count).toFixed(2), // 保留两位小数
+      }));
 
+      return mergedData;
+    } else if (typeof data === "object") {
+      // 多只猫的数据：逐个处理每只猫的数据
+      const mergedData = {};
+      for (const catName in data) {
+        const catData = data[catName];
+        mergedData[catName] = Object.values(
+                catData.reduce((acc, curr) => {
+                  const {date, weight, cat_name, cat_id} = curr;
+                  if (!acc[date]) {
+                    acc[date] = {date, totalWeight: 0, count: 0, cat_name, cat_id};
+                  }
+                  acc[date].totalWeight += parseFloat(weight);
+                  acc[date].count += 1;
+                  return acc;
+                }, {})
+        ).map(group => ({
+          cat_name: group.cat_name,
+          cat_id: group.cat_id,
+          date: group.date,
+          weight: (group.totalWeight / group.count).toFixed(2), // 保留两位小数
+        }));
+      }
+
+      return mergedData;
+    } else {
+      console.error("Invalid data format. Expected an array or an object.");
+      return null;
+    }
+  }
   // 更新所有图表
   function updateCharts() {
     const selectedCat = document.getElementById('chart-cat-select').value;
